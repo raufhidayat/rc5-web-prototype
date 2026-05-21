@@ -38,12 +38,5 @@ rc5-web-prototype/
 3. Klik dua kali file `index.html` atau buka menggunakan ekstensi Live Server di Visual Studio Code.
 4. Masukkan plaintext dan kunci, lalu klik **Jalankan Proses**.
 
-## Cara Deploy ke GitHub Pages
-1. Buat repository baru di GitHub, misalnya `rc5-web-prototype`.
-2. Upload semua file proyek ke repository.
-3. Buka **Settings > Pages**.
-4. Pada bagian **Build and deployment**, pilih source dari branch `main` dan folder `/root`.
-5. Simpan, lalu tunggu hingga GitHub memberikan link website.
-
 ## Catatan Keamanan
 Prototype ini dibuat untuk pembelajaran. Sistem belum menggunakan mode operasi blok lanjutan seperti CBC/CTR, belum memakai IV/nonce, dan belum ditujukan untuk penggunaan produksi.
