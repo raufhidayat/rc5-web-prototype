@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RC5 Web Encryption Prototype</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Prototype Sistem Keamanan Minggu 2</p>
+      <h1>RC5 Text Encryption Web</h1>
+      <p class="subtitle">Implementasi awal algoritma RC5 dari dasar tanpa library kriptografi.</p>
+    </div>
+    <div class="badge">RC5-32/12</div>
+  </header>
+
+  <main class="layout">
+    <section class="card input-card">
+      <div class="section-head">
+        <div>
+          <h2>Input Data</h2>
+          <p>Masukkan teks dan kunci rahasia untuk proses enkripsi atau dekripsi.</p>
+        </div>
+      </div>
+
+      <label for="mode">Mode Proses</label>
+      <select id="mode">
+        <option value="encrypt">Enkripsi Plaintext ke Ciphertext</option>
+        <option value="decrypt">Dekripsi Ciphertext ke Plaintext</option>
+      </select>
+
+      <label for="inputText" id="inputLabel">Plaintext</label>
+      <textarea id="inputText" rows="8" placeholder="Contoh: Data rahasia kelompok 4"></textarea>
+
+      <label for="secretKey">Kunci Rahasia</label>
+      <div class="key-row">
+        <input id="secretKey" type="password" placeholder="Minimal 8 karakter disarankan" />
+        <button type="button" class="secondary" id="toggleKey">Lihat</button>
+      </div>
+
+      <div class="settings-grid">
+        <div>
+          <label for="rounds">Jumlah Round</label>
+          <input id="rounds" type="number" min="12" max="20" value="12" />
+        </div>
+        <div>
+          <label for="outputFormat">Format Output</label>
+          <select id="outputFormat">
+            <option value="base64">Base64</option>
+            <option value="hex">Hex</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="processBtn">Jalankan Proses</button>
+        <button type="button" class="secondary" id="clearBtn">Bersihkan</button>
+      </div>
+      <p id="message" class="message"></p>
+    </section>
+
+    <section class="card output-card">
+      <div class="section-head">
+        <div>
+          <h2>Hasil Proses</h2>
+          <p>Hasil akan muncul sesuai mode yang dipilih.</p>
+        </div>
+        <button type="button" class="secondary small" id="copyBtn">Salin</button>
+      </div>
+
+      <label for="outputText" id="outputLabel">Ciphertext</label>
+      <textarea id="outputText" rows="8" readonly placeholder="Hasil enkripsi/dekripsi akan muncul di sini"></textarea>
+
+      <div class="info-grid">
+        <div class="info-box">
+          <span>Blok</span>
+          <strong>64-bit</strong>
+        </div>
+        <div class="info-box">
+          <span>Word</span>
+          <strong>32-bit</strong>
+        </div>
+        <div class="info-box">
+          <span>Padding</span>
+          <strong>PKCS#7</strong>
+        </div>
+      </div>
+
+      <h3>Log Implementasi</h3>
+      <pre id="logBox">Menunggu proses...</pre>
+    </section>
+
+    <section class="card wide-card">
+      <h2>Alur Sistem</h2>
+      <div class="flow">
+        <div>Input teks dan kunci</div>
+        <span>→</span>
+        <div>Validasi input</div>
+        <span>→</span>
+        <div>Padding & blok 64-bit</div>
+        <span>→</span>
+        <div>Key expansion RC5</div>
+        <span>→</span>
+        <div>Enkripsi / Dekripsi</div>
+        <span>→</span>
+        <div>Tampilkan hasil</div>
+      </div>
+    </section>
+
+    <section class="card wide-card">
+      <h2>Pengujian Awal Keamanan</h2>
+      <p class="muted">Gunakan tombol ini untuk melihat estimasi avalanche effect sederhana. Sistem mengenkripsi teks asli dan teks yang diubah sedikit, lalu membandingkan perbedaan bit ciphertext.</p>
+      <button type="button" class="secondary" id="avalancheBtn">Uji Avalanche Sederhana</button>
+      <pre id="avalancheBox">Belum ada hasil pengujian.</pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>Kelompok 4 | Implementasi Algoritma RC5 untuk Enkripsi dan Dekripsi Data Berbasis Web</p>
+  </footer>
+
+  <script src="rc5.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
