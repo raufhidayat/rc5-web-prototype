@@ -57,6 +57,3 @@
 +- Menambah pengujian terstruktur (test case tetap).
 +- Menambah visualisasi langkah internal RC5 per round untuk kebutuhan presentasi.
 +- Meningkatkan UX (indikator error/sukses lebih informatif).
- 
-EOF
-)
