@@ -121,5 +121,22 @@ avalancheBtn.addEventListener('click', () => {
   }
 });
 
-modeEl.addEventListener('change', updateLabels);
+modeEl.addEventListener('change', () => {
+  updateLabels();
+
+  // Menghapus kunci ketika mode proses diganti
+  secretKeyEl.value = '';
+
+  // Mengembalikan kolom kunci ke kondisi tersembunyi
+  secretKeyEl.type = 'password';
+  toggleKeyBtn.textContent = 'Lihat';
+
+  // Menghapus hasil dan log proses sebelumnya
+  outputTextEl.value = '';
+  logBox.textContent = 'Menunggu proses...';
+  avalancheBox.textContent = 'Belum ada hasil pengujian.';
+
+  setMessage('Mode berhasil diubah. Masukkan kembali kunci rahasia.');
+});
+
 updateLabels();
