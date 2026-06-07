@@ -8,7 +8,6 @@ const RC5 = (() => {
   const WORD_SIZE = 32;
   const BYTES_PER_WORD = 4;
   const BLOCK_SIZE = 8;
-  const MOD_MASK = 0xffffffff;
   const P32 = 0xB7E15163;
   const Q32 = 0x9E3779B9;
 
@@ -80,6 +79,15 @@ const RC5 = (() => {
     output[offset + 1] = (word >>> 8) & 0xff;
     output[offset + 2] = (word >>> 16) & 0xff;
     output[offset + 3] = (word >>> 24) & 0xff;
+  }
+
+  function hexWord(word) {
+    return `0x${(word >>> 0).toString(16).padStart(8, '0').toUpperCase()}`;
+  }
+
+  function bytesToHex(bytes, spaced = false) {
+    const separator = spaced ? ' ' : '';
+    return Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(separator);
   }
 
   function expandKey(keyBytes, rounds = 12) {
@@ -154,6 +162,130 @@ const RC5 = (() => {
     return out;
   }
 
+  function traceEncryptBlock(blockBytes, S, rounds = 12) {
+    let A = readWordLE(blockBytes, 0);
+    let B = readWordLE(blockBytes, 4);
+    const stages = [{
+      kind: 'input',
+      label: 'Input blok',
+      beforeA: A,
+      beforeB: B,
+      afterA: A,
+      afterB: B,
+      explanation: 'Delapan byte pada blok dibagi menjadi dua word 32-bit: A dan B.'
+    }];
+
+    const beforeInitA = A;
+    const beforeInitB = B;
+    A = add(A, S[0]);
+    B = add(B, S[1]);
+    stages.push({
+      kind: 'initial',
+      label: 'Pra-round: penambahan subkey awal',
+      beforeA: beforeInitA,
+      beforeB: beforeInitB,
+      afterA: A,
+      afterB: B,
+      subkeys: [S[0], S[1]],
+      explanation: 'A ditambah S[0] dan B ditambah S[1] sebelum masuk ke iterasi utama.'
+    });
+
+    for (let round = 1; round <= rounds; round++) {
+      const beforeA = A;
+      const beforeB = B;
+      A = add(rotl((A ^ B) >>> 0, B), S[2 * round]);
+      B = add(rotl((B ^ A) >>> 0, A), S[2 * round + 1]);
+      stages.push({
+        kind: 'round',
+        round,
+        label: `Round ${round}`,
+        beforeA,
+        beforeB,
+        afterA: A,
+        afterB: B,
+        subkeys: [S[2 * round], S[2 * round + 1]],
+        explanation: 'Word A dan B diproses dengan XOR, rotasi bit kiri, lalu penjumlahan modulo 2³² menggunakan subkey round.'
+      });
+    }
+
+    const output = new Uint8Array(BLOCK_SIZE);
+    writeWordLE(A, output, 0);
+    writeWordLE(B, output, 4);
+    stages.push({
+      kind: 'output',
+      label: 'Output blok ciphertext',
+      beforeA: A,
+      beforeB: B,
+      afterA: A,
+      afterB: B,
+      explanation: 'Dua word hasil round terakhir digabung kembali menjadi satu blok ciphertext 64-bit.'
+    });
+
+    return { input: blockBytes, output, stages };
+  }
+
+  function traceDecryptBlock(blockBytes, S, rounds = 12) {
+    let A = readWordLE(blockBytes, 0);
+    let B = readWordLE(blockBytes, 4);
+    const stages = [{
+      kind: 'input',
+      label: 'Input blok ciphertext',
+      beforeA: A,
+      beforeB: B,
+      afterA: A,
+      afterB: B,
+      explanation: 'Blok ciphertext dibagi menjadi dua word 32-bit: A dan B.'
+    }];
+
+    for (let round = rounds; round >= 1; round--) {
+      const beforeA = A;
+      const beforeB = B;
+      B = (rotr(sub(B, S[2 * round + 1]), A) ^ A) >>> 0;
+      A = (rotr(sub(A, S[2 * round]), B) ^ B) >>> 0;
+      stages.push({
+        kind: 'round',
+        round,
+        label: `Round balik ${round}`,
+        beforeA,
+        beforeB,
+        afterA: A,
+        afterB: B,
+        subkeys: [S[2 * round], S[2 * round + 1]],
+        explanation: 'Dekripsi membalik urutan round. Penjumlahan menjadi pengurangan dan rotasi kiri dibalik menjadi rotasi kanan.'
+      });
+    }
+
+    const beforeFinalA = A;
+    const beforeFinalB = B;
+    B = sub(B, S[1]);
+    A = sub(A, S[0]);
+    stages.push({
+      kind: 'initial',
+      label: 'Pasca-round: pengurangan subkey awal',
+      beforeA: beforeFinalA,
+      beforeB: beforeFinalB,
+      afterA: A,
+      afterB: B,
+      subkeys: [S[0], S[1]],
+      explanation: 'Setelah semua round dibalik, sistem mengurangi S[1] dari B dan S[0] dari A.'
+    });
+
+    const output = new Uint8Array(BLOCK_SIZE);
+    writeWordLE(A, output, 0);
+    writeWordLE(B, output, 4);
+    stages.push({
+      kind: 'output',
+      label: 'Output blok plaintext dengan padding',
+      beforeA: A,
+      beforeB: B,
+      afterA: A,
+      afterB: B,
+      explanation: 'Dua word hasil akhir digabung kembali. Padding akan dihapus setelah seluruh blok selesai diproses.'
+    });
+
+    return { input: blockBytes, output, stages };
+  }
+
   function encryptBytes(plainBytes, keyBytes, rounds = 12) {
     const padded = pkcs7Pad(plainBytes);
     const S = expandKey(keyBytes, rounds);
@@ -197,10 +329,6 @@ const RC5 = (() => {
     return bytes;
   }
 
-  function bytesToHex(bytes) {
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
   function hexToBytes(hex) {
     const clean = hex.replace(/\s+/g, '').toLowerCase();
     if (!/^[0-9a-f]*$/.test(clean) || clean.length % 2 !== 0) {
@@ -225,6 +353,69 @@ const RC5 = (() => {
     const keyBytes = utf8ToBytes(key);
     const plainBytes = decryptBytes(cipherBytes, keyBytes, rounds);
     return bytesToUtf8(plainBytes);
+  }
+
+  function traceEncryptText(plaintext, key, rounds = 12, format = 'base64') {
+    const plainBytes = utf8ToBytes(plaintext);
+    const keyBytes = utf8ToBytes(key);
+    const paddedBytes = pkcs7Pad(plainBytes);
+    const paddingLength = paddedBytes.length - plainBytes.length;
+    const subkeys = expandKey(keyBytes, rounds);
+    const cipherBytes = new Uint8Array(paddedBytes.length);
+    const blocks = [];
+
+    for (let offset = 0; offset < paddedBytes.length; offset += BLOCK_SIZE) {
+      const trace = traceEncryptBlock(paddedBytes.slice(offset, offset + BLOCK_SIZE), subkeys, rounds);
+      cipherBytes.set(trace.output, offset);
+      blocks.push(trace);
+    }
+
+    return {
+      mode: 'encrypt',
+      rounds,
+      format,
+      inputBytes: plainBytes,
+      paddedBytes,
+      outputBytes: cipherBytes,
+      paddingLength,
+      subkeys,
+      blocks,
+      outputText: format === 'hex' ? bytesToHex(cipherBytes) : bytesToBase64(cipherBytes)
+    };
+  }
+
+  function traceDecryptText(ciphertext, key, rounds = 12, format = 'base64') {
+    const cipherBytes = format === 'hex' ? hexToBytes(ciphertext) : base64ToBytes(ciphertext);
+    if (cipherBytes.length === 0 || cipherBytes.length % BLOCK_SIZE !== 0) {
+      throw new Error('Ciphertext harus berukuran kelipatan 8 byte.');
+    }
+
+    const keyBytes = utf8ToBytes(key);
+    const subkeys = expandKey(keyBytes, rounds);
+    const paddedPlainBytes = new Uint8Array(cipherBytes.length);
+    const blocks = [];
+
+    for (let offset = 0; offset < cipherBytes.length; offset += BLOCK_SIZE) {
+      const trace = traceDecryptBlock(cipherBytes.slice(offset, offset + BLOCK_SIZE), subkeys, rounds);
+      paddedPlainBytes.set(trace.output, offset);
+      blocks.push(trace);
+    }
+
+    const paddingLength = paddedPlainBytes[paddedPlainBytes.length - 1];
+    const plainBytes = pkcs7Unpad(paddedPlainBytes);
+
+    return {
+      mode: 'decrypt',
+      rounds,
+      format,
+      inputBytes: cipherBytes,
+      paddedBytes: paddedPlainBytes,
+      outputBytes: plainBytes,
+      paddingLength,
+      subkeys,
+      blocks,
+      outputText: bytesToUtf8(plainBytes)
+    };
   }
 
   function bitDifference(bytesA, bytesB) {
@@ -256,9 +447,15 @@ const RC5 = (() => {
   return {
     encryptText,
     decryptText,
+    traceEncryptText,
+    traceDecryptText,
     avalancheTest,
     utf8ToBytes,
+    bytesToUtf8,
+    bytesToHex,
+    bytesToBase64,
     base64ToBytes,
-    hexToBytes
+    hexToBytes,
+    hexWord
   };
 })();
