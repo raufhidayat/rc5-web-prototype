@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RC5 Web Encryption Prototype</title>
+  <title>RC5 Learning Lab</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
     <div>
-      <h1>RC5 Text Encryption Web</h1>
-      <p class="subtitle">Implementasi awal algoritma RC5 dari dasar tanpa library kriptografi.</p>
+      <p class="eyebrow">Media Pembelajaran Sistem Keamanan</p>
+      <h1>RC5 Learning Lab</h1>
+      <p class="subtitle">Simulasikan enkripsi dan dekripsi teks, lalu amati perubahan data pada setiap tahap proses RC5.</p>
     </div>
     <div class="badge">RC5-32/12</div>
   </header>
@@ -35,7 +36,7 @@
 
       <label for="secretKey">Kunci Rahasia</label>
       <div class="key-row">
-        <input id="secretKey" type="password" placeholder="Minimal 8 karakter disarankan" />
+        <input id="secretKey" type="password" placeholder="Minimal 8 karakter disarankan" autocomplete="off" />
         <button type="button" class="secondary" id="toggleKey">Lihat</button>
       </div>
 
@@ -89,6 +90,93 @@
 
       <h3>Log Implementasi</h3>
       <pre id="logBox">Menunggu proses...</pre>
+    </section>
+
+    <section class="card wide-card monitor-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow dark">Fitur Pembelajaran</p>
+          <h2>Monitor Proses RC5</h2>
+          <p>Monitor menampilkan perubahan data setelah tombol <strong>Jalankan Proses</strong> ditekan. Pilih blok dan round untuk melihat transformasi secara bertahap.</p>
+        </div>
+        <span id="monitorModeBadge" class="monitor-badge">Belum ada proses</span>
+      </div>
+
+      <div id="monitorEmpty" class="monitor-empty">
+        Masukkan data, pilih mode, lalu jalankan proses untuk melihat visualisasi perubahan data.
+      </div>
+
+      <div id="monitorContent" class="monitor-content" hidden>
+        <div id="pipeline" class="pipeline"></div>
+
+        <div class="monitor-summary-grid">
+          <div class="monitor-summary">
+            <span>Ukuran input</span>
+            <strong id="monitorInputSize">-</strong>
+          </div>
+          <div class="monitor-summary">
+            <span>Jumlah blok</span>
+            <strong id="monitorBlockCount">-</strong>
+          </div>
+          <div class="monitor-summary">
+            <span>Padding</span>
+            <strong id="monitorPadding">-</strong>
+          </div>
+          <div class="monitor-summary">
+            <span>Subkey</span>
+            <strong id="monitorSubkeyCount">-</strong>
+          </div>
+        </div>
+
+        <div class="monitor-controls">
+          <div>
+            <label for="monitorBlock">Pilih Blok</label>
+            <select id="monitorBlock"></select>
+          </div>
+          <div>
+            <label for="monitorRound">Pilih Tahap / Round</label>
+            <select id="monitorRound"></select>
+          </div>
+        </div>
+
+        <div class="round-panel">
+          <div>
+            <p class="round-caption" id="roundCaption">-</p>
+            <h3 id="roundTitle">Detail Transformasi</h3>
+          </div>
+          <p class="muted" id="roundExplanation">-</p>
+        </div>
+
+        <div class="word-grid">
+          <div class="word-card">
+            <span>A sebelum tahap</span>
+            <strong id="beforeA">-</strong>
+          </div>
+          <div class="word-card">
+            <span>B sebelum tahap</span>
+            <strong id="beforeB">-</strong>
+          </div>
+          <div class="word-card accent">
+            <span>A sesudah tahap</span>
+            <strong id="afterA">-</strong>
+          </div>
+          <div class="word-card accent">
+            <span>B sesudah tahap</span>
+            <strong id="afterB">-</strong>
+          </div>
+        </div>
+
+        <div class="monitor-detail-grid">
+          <div>
+            <h3>Detail Blok</h3>
+            <pre id="blockDetail">-</pre>
+          </div>
+          <div>
+            <h3>Subkey pada Tahap Ini</h3>
+            <pre id="subkeyDetail">-</pre>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="card wide-card">
