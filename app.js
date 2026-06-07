@@ -15,6 +15,29 @@ const outputLabel = document.getElementById('outputLabel');
 const avalancheBtn = document.getElementById('avalancheBtn');
 const avalancheBox = document.getElementById('avalancheBox');
 
+// Elemen monitor pembelajaran
+const monitorEmpty = document.getElementById('monitorEmpty');
+const monitorContent = document.getElementById('monitorContent');
+const monitorModeBadge = document.getElementById('monitorModeBadge');
+const pipeline = document.getElementById('pipeline');
+const monitorInputSize = document.getElementById('monitorInputSize');
+const monitorBlockCount = document.getElementById('monitorBlockCount');
+const monitorPadding = document.getElementById('monitorPadding');
+const monitorSubkeyCount = document.getElementById('monitorSubkeyCount');
+const monitorBlock = document.getElementById('monitorBlock');
+const monitorRound = document.getElementById('monitorRound');
+const roundCaption = document.getElementById('roundCaption');
+const roundTitle = document.getElementById('roundTitle');
+const roundExplanation = document.getElementById('roundExplanation');
+const beforeA = document.getElementById('beforeA');
+const beforeB = document.getElementById('beforeB');
+const afterA = document.getElementById('afterA');
+const afterB = document.getElementById('afterB');
+const blockDetail = document.getElementById('blockDetail');
+const subkeyDetail = document.getElementById('subkeyDetail');
+
+let currentTrace = null;
+
 function setMessage(text, type = '') {
   messageEl.textContent = text;
   messageEl.className = `message ${type}`.trim();
@@ -34,6 +57,120 @@ function validateInput(text, key, rounds) {
   if (!key) throw new Error('Kunci rahasia tidak boleh kosong.');
   if (key.length < 4) throw new Error('Kunci terlalu pendek. Gunakan minimal 4 karakter untuk uji awal.');
   if (rounds < 12) throw new Error('Jumlah round minimal 12 sesuai rancangan proyek.');
+  if (rounds > 20) throw new Error('Jumlah round maksimal 20 pada antarmuka pembelajaran ini.');
+}
+
+function shorten(text, max = 42) {
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+function resetMonitor() {
+  currentTrace = null;
+  monitorModeBadge.textContent = 'Belum ada proses';
+  monitorEmpty.hidden = false;
+  monitorContent.hidden = true;
+  pipeline.innerHTML = '';
+  monitorBlock.innerHTML = '';
+  monitorRound.innerHTML = '';
+}
+
+function pipelineCard(title, text, hint = '') {
+  return `
+    <div class="pipeline-step">
+      <span>${title}</span>
+      <strong>${text}</strong>
+      ${hint ? `<small>${hint}</small>` : ''}
+    </div>`;
+}
+
+function renderPipeline(trace) {
+  if (trace.mode === 'encrypt') {
+    pipeline.innerHTML = [
+      pipelineCard('1. Plaintext', `${trace.inputBytes.length} byte`, shorten(RC5.bytesToHex(trace.inputBytes, true))),
+      pipelineCard('2. PKCS#7 Padding', `+${trace.paddingLength} byte`, `${trace.paddedBytes.length} byte setelah padding`),
+      pipelineCard('3. Pembagian Blok', `${trace.blocks.length} blok`, 'Setiap blok berukuran 64-bit / 8 byte'),
+      pipelineCard('4. Key Expansion', `${trace.subkeys.length} subkey`, 'Kunci rahasia tidak ditampilkan'),
+      pipelineCard('5. Round RC5', `${trace.rounds} putaran`, 'XOR, rotasi bit, dan penjumlahan modulo'),
+      pipelineCard('6. Encoding Output', trace.format.toUpperCase(), shorten(trace.outputText))
+    ].join('<span class="pipeline-arrow">→</span>');
+  } else {
+    pipeline.innerHTML = [
+      pipelineCard('1. Ciphertext', `${trace.inputBytes.length} byte`, `${trace.format.toUpperCase()} diterjemahkan ke byte`),
+      pipelineCard('2. Pembagian Blok', `${trace.blocks.length} blok`, 'Setiap blok berukuran 64-bit / 8 byte'),
+      pipelineCard('3. Key Expansion', `${trace.subkeys.length} subkey`, 'Subkey sama jika kunci sama'),
+      pipelineCard('4. Round Balik', `${trace.rounds} putaran`, 'Urutan round dibalik'),
+      pipelineCard('5. Hapus Padding', `-${trace.paddingLength} byte`, 'PKCS#7 unpadding'),
+      pipelineCard('6. Plaintext', `${trace.outputBytes.length} byte`, shorten(trace.outputText))
+    ].join('<span class="pipeline-arrow">→</span>');
+  }
+}
+
+function populateMonitorSelectors(trace) {
+  monitorBlock.innerHTML = trace.blocks
+    .map((_, index) => `<option value="${index}">Blok ${index + 1}</option>`)
+    .join('');
+
+  renderRoundOptions();
+}
+
+function renderRoundOptions() {
+  if (!currentTrace) return;
+  const block = currentTrace.blocks[Number(monitorBlock.value || 0)];
+  monitorRound.innerHTML = block.stages
+    .map((stage, index) => `<option value="${index}">${stage.label}</option>`)
+    .join('');
+  monitorRound.value = '0';
+  renderRoundDetail();
+}
+
+function renderRoundDetail() {
+  if (!currentTrace) return;
+  const blockIndex = Number(monitorBlock.value || 0);
+  const stageIndex = Number(monitorRound.value || 0);
+  const block = currentTrace.blocks[blockIndex];
+  const stage = block.stages[stageIndex];
+
+  roundCaption.textContent = `Blok ${blockIndex + 1} dari ${currentTrace.blocks.length}`;
+  roundTitle.textContent = stage.label;
+  roundExplanation.textContent = stage.explanation;
+  beforeA.textContent = RC5.hexWord(stage.beforeA);
+  beforeB.textContent = RC5.hexWord(stage.beforeB);
+  afterA.textContent = RC5.hexWord(stage.afterA);
+  afterB.textContent = RC5.hexWord(stage.afterB);
+
+  blockDetail.textContent = [
+    `Input blok  : ${RC5.bytesToHex(block.input, true)}`,
+    `Output blok : ${RC5.bytesToHex(block.output, true)}`,
+    '',
+    'Catatan:',
+    'Setiap blok berisi 8 byte atau 64 bit.',
+    'Blok dibagi menjadi word A dan word B, masing-masing 32 bit.'
+  ].join('\n');
+
+  if (stage.subkeys) {
+    subkeyDetail.textContent = [
+      `Subkey 1 : ${RC5.hexWord(stage.subkeys[0])}`,
+      `Subkey 2 : ${RC5.hexWord(stage.subkeys[1])}`,
+      '',
+      'Subkey berasal dari proses key expansion.',
+      'Kunci rahasia asli tidak ditampilkan pada monitor.'
+    ].join('\n');
+  } else {
+    subkeyDetail.textContent = 'Tahap ini tidak menggunakan subkey baru.\nPilih tahap pra-round atau salah satu round untuk melihat subkey.';
+  }
+}
+
+function renderMonitor(trace) {
+  currentTrace = trace;
+  monitorEmpty.hidden = true;
+  monitorContent.hidden = false;
+  monitorModeBadge.textContent = trace.mode === 'encrypt' ? 'Mode Enkripsi' : 'Mode Dekripsi';
+  monitorInputSize.textContent = `${trace.inputBytes.length} byte`;
+  monitorBlockCount.textContent = `${trace.blocks.length} blok`;
+  monitorPadding.textContent = `${trace.paddingLength} byte`;
+  monitorSubkeyCount.textContent = `${trace.subkeys.length} buah`;
+  renderPipeline(trace);
+  populateMonitorSelectors(trace);
 }
 
 processBtn.addEventListener('click', () => {
@@ -45,33 +182,30 @@ processBtn.addEventListener('click', () => {
     validateInput(text, key, rounds);
 
     const start = performance.now();
-    let result;
-    if (modeEl.value === 'encrypt') {
-      result = RC5.encryptText(text, key, rounds, format);
-    } else {
-      result = RC5.decryptText(text, key, rounds, format);
-    }
+    const trace = modeEl.value === 'encrypt'
+      ? RC5.traceEncryptText(text, key, rounds, format)
+      : RC5.traceDecryptText(text, key, rounds, format);
     const end = performance.now();
 
-    outputTextEl.value = result;
-    setMessage('Proses berhasil dijalankan.', 'success');
-
-    const inputBytes = modeEl.value === 'encrypt'
-      ? RC5.utf8ToBytes(text).length
-      : (format === 'hex' ? RC5.hexToBytes(text).length : RC5.base64ToBytes(text).length);
+    outputTextEl.value = trace.outputText;
+    renderMonitor(trace);
+    setMessage('Proses berhasil dijalankan. Monitor RC5 telah diperbarui.', 'success');
 
     logBox.textContent = [
       `Mode              : ${modeEl.value === 'encrypt' ? 'Enkripsi' : 'Dekripsi'}`,
       `Algoritma         : RC5-32/${rounds}`,
       `Ukuran blok       : 64 bit`,
       `Panjang kunci     : ${RC5.utf8ToBytes(key).length} byte`,
-      `Ukuran input      : ${inputBytes} byte`,
-      `Format output     : ${format.toUpperCase()}`,
+      `Ukuran input      : ${trace.inputBytes.length} byte`,
+      `Jumlah blok       : ${trace.blocks.length}`,
+      `Padding PKCS#7    : ${trace.paddingLength} byte`,
+      `Format            : ${format.toUpperCase()}`,
       `Waktu proses      : ${(end - start).toFixed(3)} ms`,
       `Status            : Berhasil`
     ].join('\n');
   } catch (error) {
     outputTextEl.value = '';
+    resetMonitor();
     setMessage(error.message, 'error');
     logBox.textContent = `Status: Gagal\nPesan : ${error.message}`;
   }
@@ -81,8 +215,11 @@ clearBtn.addEventListener('click', () => {
   inputTextEl.value = '';
   outputTextEl.value = '';
   secretKeyEl.value = '';
+  secretKeyEl.type = 'password';
+  toggleKeyBtn.textContent = 'Lihat';
   logBox.textContent = 'Menunggu proses...';
   avalancheBox.textContent = 'Belum ada hasil pengujian.';
+  resetMonitor();
   setMessage('');
 });
 
@@ -121,22 +258,23 @@ avalancheBtn.addEventListener('click', () => {
   }
 });
 
+monitorBlock.addEventListener('change', renderRoundOptions);
+monitorRound.addEventListener('change', renderRoundDetail);
+
 modeEl.addEventListener('change', () => {
   updateLabels();
 
-  // Menghapus kunci ketika mode proses diganti
+  // Menghapus data sensitif dan hasil lama ketika mode diubah.
+  inputTextEl.value = '';
+  outputTextEl.value = '';
   secretKeyEl.value = '';
-
-  // Mengembalikan kolom kunci ke kondisi tersembunyi
   secretKeyEl.type = 'password';
   toggleKeyBtn.textContent = 'Lihat';
-
-  // Menghapus hasil dan log proses sebelumnya
-  outputTextEl.value = '';
   logBox.textContent = 'Menunggu proses...';
   avalancheBox.textContent = 'Belum ada hasil pengujian.';
-
-  setMessage('Mode berhasil diubah. Masukkan kembali kunci rahasia.');
+  resetMonitor();
+  setMessage('Mode berhasil diubah. Masukkan kembali teks dan kunci rahasia.');
 });
 
 updateLabels();
+resetMonitor();
